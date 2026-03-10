@@ -1,11 +1,15 @@
 // Azure Container Apps — hosts the CrewInsight FastAPI service
+// Joins an existing Container Apps Managed Environment (shared with RiskScout)
 
 param prefix string
 param location string
 param tags object
 param containerRegistryServer string
 param imageTag string
-param logAnalyticsWorkspaceId string
+
+@description('Resource ID of the existing Container Apps Managed Environment')
+param managedEnvironmentId string
+
 param appInsightsConnectionString string
 param azureOpenAiEndpoint string
 @secure()
@@ -16,27 +20,12 @@ param azureSearchApiKey string
 
 var imageName = '${containerRegistryServer}/crewinsight:${imageTag}'
 
-resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
-  name: '${prefix}-env'
-  location: location
-  tags: tags
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: reference(logAnalyticsWorkspaceId, '2023-09-01').customerId
-        sharedKey: listKeys(logAnalyticsWorkspaceId, '2023-09-01').primarySharedKey
-      }
-    }
-  }
-}
-
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: '${prefix}-app'
   location: location
   tags: tags
   properties: {
-    managedEnvironmentId: containerAppEnv.id
+    managedEnvironmentId: managedEnvironmentId
     configuration: {
       ingress: {
         external: true
@@ -85,10 +74,9 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           env: [
             { name: 'AZURE_OPENAI_ENDPOINT', value: azureOpenAiEndpoint }
             { name: 'AZURE_OPENAI_API_KEY', secretRef: 'azure-openai-key' }
-            { name: 'AZURE_OPENAI_CHAT_DEPLOYMENT', value: 'gpt-4o' }
-            { name: 'AZURE_OPENAI_EMBEDDING_DEPLOYMENT', value: 'text-embedding-3-large' }
             { name: 'AZURE_SEARCH_ENDPOINT', value: azureSearchEndpoint }
             { name: 'AZURE_SEARCH_API_KEY', secretRef: 'azure-search-key' }
+            { name: 'AZURE_SEARCH_INDEX', value: 'crewinsight-index' }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
             { name: 'LOG_LEVEL', value: 'INFO' }
           ]

@@ -1,10 +1,9 @@
 // CrewInsight — Azure infrastructure entry point
+// Shares Azure OpenAI, AI Search, and Container Apps Managed Environment with RiskScout
+// to avoid duplicate resource costs (~$250/mo savings on AI Search alone).
 
 @description('Azure region for all resources')
 param location string = resourceGroup().location
-
-@description('Azure region for OpenAI (must have gpt-4o quota)')
-param openAiLocation string = 'eastus2'
 
 @description('Environment name (dev / staging / prod)')
 @allowed(['dev', 'staging', 'prod'])
@@ -17,12 +16,21 @@ param containerRegistryServer string
 param imageTag string = 'latest'
 
 @secure()
-@description('Azure OpenAI API key')
+@description('Azure OpenAI API key (shared with RiskScout)')
 param azureOpenAiApiKey string
 
+@description('Azure OpenAI endpoint (shared with RiskScout)')
+param azureOpenAiEndpoint string
+
 @secure()
-@description('Azure AI Search admin key')
+@description('Azure AI Search admin key (shared with RiskScout)')
 param azureSearchApiKey string
+
+@description('Azure AI Search endpoint (shared with RiskScout)')
+param azureSearchEndpoint string
+
+@description('Resource ID of existing Container Apps Managed Environment (shared with RiskScout)')
+param managedEnvironmentId string
 
 var prefix = 'crewinsight-${environment}'
 var tags = {
@@ -30,6 +38,10 @@ var tags = {
   environment: environment
   managedBy: 'bicep'
 }
+
+// ---------------------------------------------------------------------------
+// Application Insights (separate for CrewInsight telemetry isolation)
+// ---------------------------------------------------------------------------
 
 module monitoring 'monitoring.bicep' = {
   name: 'monitoring'
@@ -40,23 +52,9 @@ module monitoring 'monitoring.bicep' = {
   }
 }
 
-module openai 'openai.bicep' = {
-  name: 'openai'
-  params: {
-    prefix: prefix
-    location: openAiLocation
-    tags: tags
-  }
-}
-
-module aiSearch 'ai-search.bicep' = {
-  name: 'ai-search'
-  params: {
-    prefix: prefix
-    location: location
-    tags: tags
-  }
-}
+// ---------------------------------------------------------------------------
+// Container App (joins the shared RiskScout managed environment)
+// ---------------------------------------------------------------------------
 
 module containerApp 'container-app.bicep' = {
   name: 'container-app'
@@ -66,16 +64,18 @@ module containerApp 'container-app.bicep' = {
     tags: tags
     containerRegistryServer: containerRegistryServer
     imageTag: imageTag
-    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
+    managedEnvironmentId: managedEnvironmentId
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
-    azureOpenAiEndpoint: openai.outputs.endpoint
+    azureOpenAiEndpoint: azureOpenAiEndpoint
     azureOpenAiApiKey: azureOpenAiApiKey
-    azureSearchEndpoint: aiSearch.outputs.endpoint
+    azureSearchEndpoint: azureSearchEndpoint
     azureSearchApiKey: azureSearchApiKey
   }
 }
 
+// ---------------------------------------------------------------------------
+// Outputs
+// ---------------------------------------------------------------------------
+
 output containerAppUrl string = containerApp.outputs.url
 output appInsightsConnectionString string = monitoring.outputs.appInsightsConnectionString
-output searchEndpoint string = aiSearch.outputs.endpoint
-output openAiEndpoint string = openai.outputs.endpoint

@@ -98,7 +98,10 @@ jobs:
             containerRegistryServer=${{ secrets.AZURE_CONTAINER_REGISTRY }}
             imageTag=${{ needs.build.outputs.image_tag }}
             azureOpenAiApiKey=${{ secrets.AZURE_OPENAI_API_KEY }}
+            azureOpenAiEndpoint=${{ secrets.AZURE_OPENAI_ENDPOINT }}
             azureSearchApiKey=${{ secrets.AZURE_SEARCH_API_KEY }}
+            azureSearchEndpoint=${{ secrets.AZURE_SEARCH_ENDPOINT }}
+            managedEnvironmentId=${{ secrets.RISKSCOUT_MANAGED_ENV_ID }}
           failOnStdErr: false
 
       - name: Update Container App
