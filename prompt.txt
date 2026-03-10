@@ -1,0 +1,87 @@
+Prompt 2 — CrewAI: Competitive Market Intelligence Crew
+
+  Build a production-ready multi-agent application called "crewinsight" using
+  CrewAI deployed on Azure Container Apps.
+
+  ## Use Case
+  A competitive market intelligence system that takes a company name and market
+  segment as input, then coordinates a crew of specialized AI agents to produce
+  a structured competitive intelligence report. This mirrors real-world
+  consulting research workflows where analysts, researchers, and strategists
+  collaborate.
+
+  ## Tech Stack
+  - Framework: CrewAI (Python)
+  - LLM: Azure OpenAI (gpt-4o)
+  - Embeddings + RAG: Azure AI Search (text-embedding-3-large) for grounding
+    agents on ingested industry documents / news corpus
+  - API layer: FastAPI
+  - Deployment: Azure Container Apps
+  - IaC: Bicep
+  - CI/CD: GitHub Actions
+  - Observability: Azure Monitor + Application Insights (per-agent token cost
+    tracking, task duration, crew run telemetry)
+
+  ## CrewAI Architecture
+  Build a Crew with these four Agents, each with a distinct role, goal, and
+  backstory:
+
+  1. **Research Agent** (`role: Senior Market Researcher`)
+     - Tools: Azure AI Search RAG tool (custom), web scraping tool (httpx +
+       BeautifulSoup), structured data extractor
+     - Task: Gather factual data on the target company and top 3 competitors —
+       products, pricing, recent news, funding, headcount
+
+  2. **Analyst Agent** (`role: Competitive Intelligence Analyst`)
+     - Tools: Python calculation tool, data formatter
+     - Task: Analyze research output, identify competitive gaps, strengths,
+       weaknesses; produce SWOT-style structured analysis
+
+  3. **Strategist Agent** (`role: Strategic Advisor`)
+     - Tools: None (pure reasoning)
+     - Task: Translate analysis into 3-5 strategic recommendations with
+       supporting rationale; identify market opportunities
+
+  4. **Report Writer Agent** (`role: Business Report Writer`)
+     - Tools: Markdown formatter, structured output validator (Pydantic)
+     - Task: Synthesize all prior outputs into a clean, structured report with
+       executive summary, findings, SWOT table, and recommendations
+
+  Use CrewAI's `Process.sequential` flow with explicit `context` passing between
+  tasks so each agent builds on prior work.
+
+  ## Structured Output
+  Final report schema (Pydantic):
+  - executive_summary: str
+  - company_overview: dict (name, sector, key_products)
+  - competitor_profiles: List[CompetitorProfile]
+  - swot: dict (strengths, weaknesses, opportunities, threats)
+  - strategic_recommendations: List[Recommendation]
+  - sources: List[str]
+  - metadata: dict (run_id, duration_seconds, total_tokens, cost_usd)
+
+  ## API Endpoints
+  - POST /research — { company: str, segment: str } → start crew run, return
+    run_id
+  - GET /status/{run_id} — crew run status + current active agent
+  - GET /report/{run_id} — full structured report when complete
+
+  ## Observability
+  Instrument with CrewAI's built-in callbacks to emit per-agent telemetry:
+  { agent_role, task, duration_ms, input_tokens, output_tokens, timestamp }
+  Wire to Application Insights via OpenTelemetry.
+  Include a /metrics endpoint returning aggregate stats across all crew runs:
+  avg cost per report, avg duration, most expensive agent.
+
+  ## Deployment
+  - Multi-stage Dockerfile
+  - Bicep templates for: Container Apps, Azure OpenAI, AI Search, Log Analytics,
+    Application Insights
+  - GitHub Actions: build → push ACR → deploy Container Apps
+
+  ## README
+  Architecture diagram, setup guide, and a sample end-to-end example showing
+  a crew run against a real company (e.g. Salesforce vs HubSpot in CRM segment).
+
+  Production-quality code, fully typed, no notebooks.
+
