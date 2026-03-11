@@ -5,7 +5,7 @@ from statistics import mean
 from typing import Dict, List
 
 from opentelemetry import trace
-from opentelemetry.exporter.azure.monitor import AzureMonitorTraceExporter
+from azure.monitor.opentelemetry.exporter import AzureMonitorTraceExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
