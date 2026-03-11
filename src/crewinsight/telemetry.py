@@ -12,10 +12,13 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 
 def setup_telemetry(service_name: str) -> None:
+    import os
     provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
-    exporter = AzureMonitorTraceExporter()
-    processor = BatchSpanProcessor(exporter)
-    provider.add_span_processor(processor)
+    conn_str = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
+    if conn_str:
+        exporter = AzureMonitorTraceExporter(connection_string=conn_str)
+        processor = BatchSpanProcessor(exporter)
+        provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
 
 
