@@ -18,4 +18,4 @@ jobs:
           pip install -r requirements.txt
           pip install -e .
       - name: Run tests
-        run: pytest
+        run: python -m pytest src/crewinsight/tests/ -v --tb=short

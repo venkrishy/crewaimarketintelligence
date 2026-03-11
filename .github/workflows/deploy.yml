@@ -28,7 +28,7 @@ jobs:
         run: uv pip install --system -e ".[tests]"
 
       - name: Run tests
-        run: pytest src/crewinsight/tests/ -v --tb=short
+        run: python -m pytest src/crewinsight/tests/ -v --tb=short
         env:
           AZURE_OPENAI_ENDPOINT: "https://mock.openai.azure.com/"
           AZURE_OPENAI_API_KEY: "mock-key"
