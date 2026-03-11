@@ -14,8 +14,11 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -e .
+        run: pip install -e ".[tests]"
       - name: Run tests
         run: python -m pytest src/crewinsight/tests/ -v --tb=short
+        env:
+          AZURE_OPENAI_ENDPOINT: "https://mock.openai.azure.com/"
+          AZURE_OPENAI_API_KEY: "mock-key"
+          AZURE_SEARCH_ENDPOINT: "https://mock.search.windows.net"
+          AZURE_SEARCH_API_KEY: "mock-key"
