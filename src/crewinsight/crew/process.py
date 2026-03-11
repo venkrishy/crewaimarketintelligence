@@ -76,9 +76,9 @@ class ReportWriterAgent(CrewAgent):
             "report": CrewReport(
                 executive_summary="Generated insights",
                 company_overview={
-                    "name": context["company"],
-                    "segment": context["segment"],
-                    "key_products": ["Product A", "Product B"],
+                    "name": str(context["company"]),
+                    "segment": str(context["segment"]),
+                    "key_products": "Product A, Product B",
                 },
                 competitor_profiles=context.get("competitors", []),
                 swot=context.get("swot", {}),

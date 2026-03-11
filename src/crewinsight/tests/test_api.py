@@ -1,5 +1,5 @@
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from crewinsight.api.main import app
 
@@ -10,7 +10,7 @@ def test_health_endpoint():
 
 @pytest.mark.asyncio
 async def test_metrics_schema():
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/v1/metrics")
         assert response.status_code == 200
         payload = response.json()
@@ -19,7 +19,7 @@ async def test_metrics_schema():
 
 @pytest.mark.asyncio
 async def test_research_flow():
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/api/v1/research", json={"company": "TestCo", "segment": "Tech"})
         assert response.status_code == 200
         payload = response.json()
