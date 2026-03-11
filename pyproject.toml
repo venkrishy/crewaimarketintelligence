@@ -12,6 +12,7 @@ dependencies = [
   "fastapi>=0.110",
   "uvicorn[standard]>=0.22",
   "pydantic>=2.5",
+  "pydantic-settings>=2.0",
   "crewai>=0.1.0",
   "azure-search-documents>=11.0.0",
   "azure-identity>=1.13",
