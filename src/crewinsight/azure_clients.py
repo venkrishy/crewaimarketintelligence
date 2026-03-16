@@ -28,7 +28,11 @@ class AzureSearchRAG:
             top=top_k,
             query_type=QueryType.SIMPLE,
         )
-        return [doc.get("content") for doc in results if doc.get("content")]
+        docs: List[str] = []
+        async for doc in results:
+            if doc.get("content"):
+                docs.append(doc.get("content"))
+        return docs
 
     async def close(self) -> None:
         if self.client:
