@@ -1,6 +1,8 @@
 # crewinsight
 
-CrewAI-powered competitive market intelligence crew that orchestrates research, analysis, strategy, and reporting via a FastAPI front end and Azure-backed tooling.
+This is an AI Agentic solution written using CrewAI and deployed in Azure.  
+
+It is a competitive market intelligence crew that orchestrates research, analysis, strategy, and reporting via a FastAPI front end and Azure-backed tooling.
 
 ## Highlights
 - CrewAI `Process.sequential` flow with explicit context passing through Research, Analyst, Strategist, and Report Writer agents.
@@ -19,11 +21,6 @@ cp .env.example .env
 uvicorn crewinsight.api.main:app --reload
 ```
 
-## MCP tooling
-- Install the MCP host: `pip install huggingface_hub[mcp]` or use CrewAI’s recommended MCP server binary.
-- Configure `CREW_MCP_COMMAND` or `CREW_MCP_URL` in `.env` so CrewAI tools can register themselves.
-- Validate availability with `python -m crewinsight.crew.validate_mcp` (command shows available tools).
-
 ## Architecture Diagram
 ```
 [Input] -> FastAPI /research -> CrewAI Process
@@ -34,5 +31,5 @@ uvicorn crewinsight.api.main:app --reload
 Telemetry -> Application Insights; Metrics -> /metrics endpoint; Deployment -> Azure Container Apps
 ```
 
-## Resume Narrative
-Document how this project complements `riskscout`: both are production-ready agentic systems on Azure Container Apps, share FastAPI + telemetry best practices, and demonstrate multi-agent orchestration, observability, and deployment automation.
+## Related to:
+This is similar to the AI Agent `riskscout`: both are production-ready agentic systems and both are deployed on Azure Container Apps, they share FastAPI + telemetry best practices, and demonstrate multi-agent orchestration, observability, and deployment automation.
