@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from azure.core.credentials import AzureKeyCredential
+from azure.core.exceptions import HttpResponseError
 from azure.search.documents.aio import SearchClient
 from azure.search.documents.models import QueryType
 
@@ -23,16 +24,20 @@ class AzureSearchRAG:
             return []
         if not self.client:
             return []
-        results = await self.client.search(
-            search_text=query_text,
-            top=top_k,
-            query_type=QueryType.SIMPLE,
-        )
-        docs: List[str] = []
-        async for doc in results:
-            if doc.get("content"):
-                docs.append(doc.get("content"))
-        return docs
+        try:
+            results = await self.client.search(
+                search_text=query_text,
+                top=top_k,
+                query_type=QueryType.SIMPLE,
+            )
+            docs: List[str] = []
+            async for doc in results:
+                if doc.get("content"):
+                    docs.append(doc.get("content"))
+            return docs
+        except HttpResponseError:
+            # Index not found or search service unavailable — degrade gracefully
+            return []
 
     async def close(self) -> None:
         if self.client:
