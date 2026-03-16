@@ -32,6 +32,12 @@ class Recommendation(BaseModel):
     expected_impact: str
 
 
+class AgentOutput(BaseModel):
+    role: str
+    summary: str
+    data: Dict[str, object] = Field(default_factory=dict)
+
+
 class ReportMetadata(BaseModel):
     run_id: str
     company: str = ""
@@ -50,4 +56,5 @@ class CrewReport(BaseModel):
     swot: Dict[str, List[str]]
     recommendations: List[Recommendation]
     sources: List[str]
+    agent_outputs: List[AgentOutput] = Field(default_factory=list)
     metadata: ReportMetadata

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Dict
+from typing import Any, Callable, Dict, List, Optional
 
 from crewinsight.crew.tools import FormatterTool, ResearchToolset
 from crewinsight.models.report import (
+    AgentOutput,
     CompetitorProfile,
     CrewReport,
     Recommendation,
@@ -41,7 +42,12 @@ class ResearchAgent(CrewAgent):
             )
             for i in range(min(3, len(facts)))
         ]
-        return {"facts": facts, "sources": facts[:3], "competitors": competitors}
+        agent_output = AgentOutput(
+            role=self.role,
+            summary=f"Gathered {len(facts)} research facts and identified {len(competitors)} competitors for {company} in {segment}.",
+            data={"fact_count": len(facts), "competitor_count": len(competitors), "sample_facts": facts[:3]},
+        )
+        return {"facts": facts, "sources": facts[:3], "competitors": competitors, f"_output_{self.role}": agent_output}
 
 
 class AnalystAgent(CrewAgent):
@@ -52,7 +58,13 @@ class AnalystAgent(CrewAgent):
     async def run(self, context: Dict[str, object]) -> Dict[str, object]:
         facts = context.get("facts", [])
         swot = await self.formatter.extract_swot(facts)
-        return {"swot": swot}
+        total_items = sum(len(v) for v in swot.values())
+        agent_output = AgentOutput(
+            role=self.role,
+            summary=f"Extracted SWOT analysis with {total_items} total items across 4 quadrants.",
+            data={k: v for k, v in swot.items()},
+        )
+        return {"swot": swot, f"_output_{self.role}": agent_output}
 
 
 class StrategistAgent(CrewAgent):
@@ -63,7 +75,12 @@ class StrategistAgent(CrewAgent):
     async def run(self, context: Dict[str, object]) -> Dict[str, object]:
         facts = context.get("facts", [])
         recs = await self.formatter.format_recommendations(facts)
-        return {"recommendations": recs}
+        agent_output = AgentOutput(
+            role=self.role,
+            summary=f"Generated {len(recs)} strategic recommendations.",
+            data={"recommendations": recs},
+        )
+        return {"recommendations": recs, f"_output_{self.role}": agent_output}
 
 
 class ReportWriterAgent(CrewAgent):
@@ -72,20 +89,51 @@ class ReportWriterAgent(CrewAgent):
 
     async def run(self, context: Dict[str, object]) -> Dict[str, object]:
         metadata = context["metadata"]
+        agent_outputs: List[AgentOutput] = []
+        for key, value in context.items():
+            if key.startswith("_output_") and isinstance(value, AgentOutput):
+                agent_outputs.append(value)
+
+        competitors = context.get("competitors", [])
+        swot = context.get("swot", {})
+        recs = context.get("recommendations", [])
+        sources = context.get("sources", [])
+
+        summary_parts = []
+        if competitors:
+            summary_parts.append(f"{len(competitors)} competitor profiles")
+        if swot:
+            total_swot = sum(len(v) for v in swot.values())
+            summary_parts.append(f"SWOT analysis ({total_swot} items)")
+        if recs:
+            summary_parts.append(f"{len(recs)} strategic recommendations")
+        executive_summary = (
+            f"Competitive intelligence report for {context['company']} in {context['segment']}. "
+            + ("Includes: " + ", ".join(summary_parts) + "." if summary_parts else "No data retrieved — check Azure Search index and scraping configuration.")
+        )
+
+        writer_output = AgentOutput(
+            role=self.role,
+            summary=f"Assembled final report with {len(competitors)} competitors, {len(recs)} recommendations.",
+            data={"sections": ["executive_summary", "competitors", "swot", "recommendations", "sources"]},
+        )
+        agent_outputs.append(writer_output)
+
         return {
             "report": CrewReport(
-                executive_summary="Generated insights",
+                executive_summary=executive_summary,
                 company_overview={
                     "name": str(context["company"]),
                     "segment": str(context["segment"]),
                     "key_products": "Product A, Product B",
                 },
-                competitors=context.get("competitors", []),
-                swot=context.get("swot", {}),
+                competitors=competitors,
+                swot=swot,
                 recommendations=[
-                    Recommendation(**r) for r in context.get("recommendations", [])
+                    Recommendation(**r) for r in recs
                 ],
-                sources=context.get("sources", []),
+                sources=sources,
+                agent_outputs=agent_outputs,
                 metadata=metadata,
             )
         }
@@ -99,7 +147,13 @@ class CrewCoordinator:
         self.strategist_agent = StrategistAgent(formatter)
         self.report_agent = ReportWriterAgent()
 
-    async def run(self, run_id: str, company: str, segment: str) -> CrewReport:
+    async def run(
+        self,
+        run_id: str,
+        company: str,
+        segment: str,
+        on_agent_start: Optional[Callable[[str], None]] = None,
+    ) -> CrewReport:
         import datetime
         metadata = ReportMetadata(run_id=run_id, company=company, segment=segment, duration_seconds=0.0, total_tokens=0, cost_usd=0.0, created_at=datetime.datetime.utcnow().isoformat() + "Z")
         context: Dict[str, object] = {"company": company, "segment": segment, "metadata": metadata}
@@ -113,6 +167,8 @@ class CrewCoordinator:
         per_run_costs: list[float] = []
         per_run_durations: list[float] = []
         for agent in agents:
+            if on_agent_start:
+                on_agent_start(agent.role)
             start = time.monotonic()
             result = await agent.run(context)
             duration = time.monotonic() - start

@@ -30,12 +30,18 @@ coordinator = CrewCoordinator(
 
 async def _execute_run(run_id: str, company: str, segment: str) -> None:
     runs[run_id]["status"] = CrewRunStatus.running
+
+    def on_agent_start(role: str) -> None:
+        runs[run_id]["active_agent"] = role
+
     try:
-        report = await coordinator.run(run_id, company, segment)
+        report = await coordinator.run(run_id, company, segment, on_agent_start=on_agent_start)
         runs[run_id]["status"] = CrewRunStatus.complete
+        runs[run_id]["active_agent"] = None
         runs[run_id]["report"] = report
     except Exception as exc:
         runs[run_id]["status"] = CrewRunStatus.failed
+        runs[run_id]["active_agent"] = None
         runs[run_id]["error"] = str(exc)
 
 
@@ -59,7 +65,7 @@ async def status(run_id: str) -> Dict[str, Any]:
     return {
         "run_id": run_id,
         "status": run["status"],
-        "active_agent": "unknown",
+        "active_agent": run.get("active_agent"),
         "error": run.get("error"),
     }
 
