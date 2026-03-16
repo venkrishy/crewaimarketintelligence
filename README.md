@@ -7,12 +7,15 @@
 (2) Analyst, 
 (3) Strategist, and 
 (4) Report Writer 
-- The frontend for this can be seen at [Crew Insight (theaiguru.dev) ](https://crew-insight.theaiguru.dev/).  
 
+The frontend for this can be seen at [Crew Insight (theaiguru.dev) ](https://crew-insight.theaiguru.dev/).  
 To test it out through the frontend, either click on the sample research targets like "SalesForce" and "CRM" or provide your own values in the company and market segment.  
+Built by [Venky Krishnaswamy](https://theaiguru.dev)
 
 ## Related to:
 This is similar to the AI Agent `riskscout`: both are production-ready agentic systems and both are deployed on Azure Container Apps, they share FastAPI + telemetry best practices, and demonstrate multi-agent orchestration, observability, and deployment automation.
+
+
 
 ## Highlights
 - CrewAI `Process.sequential` flow with explicit context passing through Research, Analyst, Strategist, and Report Writer agents.
