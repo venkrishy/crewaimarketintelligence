@@ -9,6 +9,7 @@ from crewinsight.azure_clients import AzureSearchRAG
 from crewinsight.config import settings
 from crewinsight.crew.process import CrewCoordinator
 from crewinsight.crew.tools import FormatterTool, ResearchToolset
+from crewinsight.data_sources.finnhub import FinnhubClient
 from crewinsight.models.report import CrewReport, CrewRunRequest, CrewRunStatus
 from crewinsight.telemetry import CrewMetrics
 
@@ -16,13 +17,15 @@ router = APIRouter(prefix="/api/v1")
 
 runs: Dict[str, Dict[str, Any]] = {}
 metrics = CrewMetrics()
+_finnhub = FinnhubClient(api_key=settings.finnhub_api_key) if settings.finnhub_api_key else None
 coordinator = CrewCoordinator(
     ResearchToolset(
         AzureSearchRAG(
             endpoint=settings.azure_search_endpoint,
             api_key=settings.azure_search_api_key,
             index_name=settings.azure_search_index,
-        )
+        ),
+        finnhub_client=_finnhub,
     ),
     FormatterTool(),
     metrics=metrics,

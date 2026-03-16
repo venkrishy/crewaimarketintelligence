@@ -31,17 +31,50 @@ class ResearchAgent(CrewAgent):
     async def run(self, context: Dict[str, object]) -> Dict[str, object]:
         company = context["company"]
         segment = context["segment"]
-        facts = await self.toolset.research_summary(company, segment)
-        competitors = [
-            CompetitorProfile(
-                name=f"{company} Competitor {i+1}",
-                overview=f"Auto-generated overview for competitor {i+1}",
-                key_products=[f"Product {i+1}A", f"Product {i+1}B"],
-                pricing="Tiered",
-                news_highlights=facts[i : i + 2],
+        research = await self.toolset.research_summary(company, segment)
+
+        # research_summary returns a dict with Finnhub data when available,
+        # or a plain list when Finnhub is not configured (backward compat).
+        if isinstance(research, dict):
+            facts: List[str] = research.get("facts", [])
+            peer_details: Dict[str, Any] = research.get("peer_details", {})
+        else:
+            facts = list(research)
+            peer_details = {}
+
+        competitors: List[CompetitorProfile] = []
+
+        # Build real competitor profiles from Finnhub peer data
+        for peer_sym, (p_profile, p_news) in peer_details.items():
+            name = p_profile.get("name") or peer_sym
+            overview = p_profile.get("description") or p_profile.get("finnhubIndustry", "")
+            market_cap = p_profile.get("marketCapitalization")
+            pricing = f"Market cap: ${market_cap:.0f}M" if market_cap else "N/A"
+            key_products = [p_profile["weburl"]] if p_profile.get("weburl") else []
+            headlines = [a["headline"] for a in p_news[:3] if a.get("headline")]
+            competitors.append(
+                CompetitorProfile(
+                    name=name,
+                    overview=overview,
+                    key_products=key_products,
+                    pricing=pricing,
+                    news_highlights=headlines,
+                )
             )
-            for i in range(min(3, len(facts)))
-        ]
+
+        # Fallback: synthetic competitors when no Finnhub peer data
+        if not competitors:
+            competitors = [
+                CompetitorProfile(
+                    name=f"{company} Competitor {i+1}",
+                    overview=f"Auto-generated overview for competitor {i+1}",
+                    key_products=[f"Product {i+1}A", f"Product {i+1}B"],
+                    pricing="Tiered",
+                    news_highlights=facts[i : i + 2],
+                )
+                for i in range(min(3, len(facts)))
+            ]
+
         agent_output = AgentOutput(
             role=self.role,
             summary=f"Gathered {len(facts)} research facts and identified {len(competitors)} competitors for {company} in {segment}.",

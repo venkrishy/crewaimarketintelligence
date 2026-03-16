@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     container_environment: str = Field("prod")
     report_cost_cap_usd: float = Field(5.0)
     telemetry_sample_rate: float = Field(1.0)
+    finnhub_api_key: str = Field("", alias="FINNHUB_API_KEY")
 
     model_config = {"env_file": ".env", "populate_by_name": True}
 
