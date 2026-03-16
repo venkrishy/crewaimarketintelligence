@@ -34,16 +34,20 @@ class Recommendation(BaseModel):
 
 class ReportMetadata(BaseModel):
     run_id: str
+    company: str = ""
+    segment: str = ""
     duration_seconds: float
     total_tokens: int
     cost_usd: float
+    total_agents: int = 4
+    created_at: str = ""
 
 
 class CrewReport(BaseModel):
     executive_summary: str
     company_overview: Dict[str, str]
-    competitor_profiles: List[CompetitorProfile]
+    competitors: List[CompetitorProfile]
     swot: Dict[str, List[str]]
-    strategic_recommendations: List[Recommendation]
+    recommendations: List[Recommendation]
     sources: List[str]
     metadata: ReportMetadata

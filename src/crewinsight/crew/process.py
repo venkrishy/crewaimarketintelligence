@@ -80,9 +80,9 @@ class ReportWriterAgent(CrewAgent):
                     "segment": str(context["segment"]),
                     "key_products": "Product A, Product B",
                 },
-                competitor_profiles=context.get("competitors", []),
+                competitors=context.get("competitors", []),
                 swot=context.get("swot", {}),
-                strategic_recommendations=[
+                recommendations=[
                     Recommendation(**r) for r in context.get("recommendations", [])
                 ],
                 sources=context.get("sources", []),
@@ -100,7 +100,8 @@ class CrewCoordinator:
         self.report_agent = ReportWriterAgent()
 
     async def run(self, run_id: str, company: str, segment: str) -> CrewReport:
-        metadata = ReportMetadata(run_id=run_id, duration_seconds=0.0, total_tokens=0, cost_usd=0.0)
+        import datetime
+        metadata = ReportMetadata(run_id=run_id, company=company, segment=segment, duration_seconds=0.0, total_tokens=0, cost_usd=0.0, created_at=datetime.datetime.utcnow().isoformat() + "Z")
         context: Dict[str, object] = {"company": company, "segment": segment, "metadata": metadata}
         agents = [
             self.research_agent,
