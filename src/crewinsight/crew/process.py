@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio
+import datetime
 import time
 from typing import Any, Callable, Dict, List, Optional
 
@@ -13,6 +13,10 @@ from crewinsight.models.report import (
     ReportMetadata,
 )
 from crewinsight.telemetry import CrewMetrics
+
+# GPT-4o pricing (Azure Standard tier, per token)
+_COST_PER_INPUT_TOKEN = 2.50 / 1_000_000
+_COST_PER_OUTPUT_TOKEN = 10.00 / 1_000_000
 
 
 class CrewAgent:
@@ -33,8 +37,6 @@ class ResearchAgent(CrewAgent):
         segment = context["segment"]
         research = await self.toolset.research_summary(company, segment)
 
-        # research_summary returns a dict with Finnhub data when available,
-        # or a plain list when Finnhub is not configured (backward compat).
         if isinstance(research, dict):
             facts: List[str] = research.get("facts", [])
             peer_details: Dict[str, Any] = research.get("peer_details", {})
@@ -44,7 +46,6 @@ class ResearchAgent(CrewAgent):
 
         competitors: List[CompetitorProfile] = []
 
-        # Build real competitor profiles from Finnhub peer data
         for peer_sym, (p_profile, p_news) in peer_details.items():
             name = p_profile.get("name") or peer_sym
             overview = p_profile.get("description") or p_profile.get("finnhubIndustry", "")
@@ -62,7 +63,6 @@ class ResearchAgent(CrewAgent):
                 )
             )
 
-        # Fallback: synthetic competitors when no Finnhub peer data
         if not competitors:
             competitors = [
                 CompetitorProfile(
@@ -80,7 +80,8 @@ class ResearchAgent(CrewAgent):
             summary=f"Gathered {len(facts)} research facts and identified {len(competitors)} competitors for {company} in {segment}.",
             data={"fact_count": len(facts), "competitor_count": len(competitors), "sample_facts": facts[:3]},
         )
-        return {"facts": facts, "sources": facts[:3], "competitors": competitors, f"_output_{self.role}": agent_output}
+        # Research agent makes no LLM calls
+        return {"facts": facts, "sources": facts[:3], "competitors": competitors, f"_output_{self.role}": agent_output, "_tokens_input": 0, "_tokens_output": 0}
 
 
 class AnalystAgent(CrewAgent):
@@ -90,14 +91,14 @@ class AnalystAgent(CrewAgent):
 
     async def run(self, context: Dict[str, object]) -> Dict[str, object]:
         facts = context.get("facts", [])
-        swot = await self.formatter.extract_swot(facts)
+        swot, usage = await self.formatter.extract_swot(facts)
         total_items = sum(len(v) for v in swot.values())
         agent_output = AgentOutput(
             role=self.role,
             summary=f"Extracted SWOT analysis with {total_items} total items across 4 quadrants.",
             data={k: v for k, v in swot.items()},
         )
-        return {"swot": swot, f"_output_{self.role}": agent_output}
+        return {"swot": swot, f"_output_{self.role}": agent_output, "_tokens_input": usage[0], "_tokens_output": usage[1]}
 
 
 class StrategistAgent(CrewAgent):
@@ -107,13 +108,13 @@ class StrategistAgent(CrewAgent):
 
     async def run(self, context: Dict[str, object]) -> Dict[str, object]:
         facts = context.get("facts", [])
-        recs = await self.formatter.format_recommendations(facts)
+        recs, usage = await self.formatter.format_recommendations(facts)
         agent_output = AgentOutput(
             role=self.role,
             summary=f"Generated {len(recs)} strategic recommendations.",
             data={"recommendations": recs},
         )
-        return {"recommendations": recs, f"_output_{self.role}": agent_output}
+        return {"recommendations": recs, f"_output_{self.role}": agent_output, "_tokens_input": usage[0], "_tokens_output": usage[1]}
 
 
 class ReportWriterAgent(CrewAgent):
@@ -142,13 +143,13 @@ class ReportWriterAgent(CrewAgent):
             summary_parts.append(f"{len(recs)} strategic recommendations")
         executive_summary = (
             f"Competitive intelligence report for {context['company']} in {context['segment']}. "
-            + ("Includes: " + ", ".join(summary_parts) + "." if summary_parts else "No data retrieved — check Azure Search index and scraping configuration.")
+            + ("Includes: " + ", ".join(summary_parts) + "." if summary_parts else "No data retrieved.")
         )
 
         writer_output = AgentOutput(
             role=self.role,
             summary=f"Assembled final report with {len(competitors)} competitors, {len(recs)} recommendations.",
-            data={"sections": ["executive_summary", "competitors", "swot", "recommendations", "sources"]},
+            data={"executive_summary": executive_summary},
         )
         agent_outputs.append(writer_output)
 
@@ -158,17 +159,17 @@ class ReportWriterAgent(CrewAgent):
                 company_overview={
                     "name": str(context["company"]),
                     "segment": str(context["segment"]),
-                    "key_products": "Product A, Product B",
+                    "key_products": "",
                 },
                 competitors=competitors,
                 swot=swot,
-                recommendations=[
-                    Recommendation(**r) for r in recs
-                ],
+                recommendations=[Recommendation(**r) for r in recs],
                 sources=sources,
                 agent_outputs=agent_outputs,
                 metadata=metadata,
-            )
+            ),
+            "_tokens_input": 0,
+            "_tokens_output": 0,
         }
 
 
@@ -187,8 +188,15 @@ class CrewCoordinator:
         segment: str,
         on_agent_start: Optional[Callable[[str], None]] = None,
     ) -> CrewReport:
-        import datetime
-        metadata = ReportMetadata(run_id=run_id, company=company, segment=segment, duration_seconds=0.0, total_tokens=0, cost_usd=0.0, created_at=datetime.datetime.utcnow().isoformat() + "Z")
+        metadata = ReportMetadata(
+            run_id=run_id,
+            company=company,
+            segment=segment,
+            duration_seconds=0.0,
+            total_tokens=0,
+            cost_usd=0.0,
+            created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        )
         context: Dict[str, object] = {"company": company, "segment": segment, "metadata": metadata}
         agents = [
             self.research_agent,
@@ -197,25 +205,34 @@ class CrewCoordinator:
             self.report_agent,
         ]
         report: CrewReport | None = None
-        per_run_costs: list[float] = []
-        per_run_durations: list[float] = []
+        total_duration = 0.0
+        total_input_tokens = 0
+        total_output_tokens = 0
+
         for agent in agents:
             if on_agent_start:
                 on_agent_start(agent.role)
             start = time.monotonic()
             result = await agent.run(context)
             duration = time.monotonic() - start
-            cost = 0.1
-            per_run_costs.append(cost)
-            per_run_durations.append(duration)
-            self.metrics.record(cost_usd=cost, duration_seconds=duration, agent_role=agent.role)
+            total_duration += duration
+
+            # Accumulate real token counts returned by each agent
+            total_input_tokens += int(result.pop("_tokens_input", 0))
+            total_output_tokens += int(result.pop("_tokens_output", 0))
+
+            self.metrics.record(cost_usd=0.0, duration_seconds=duration, agent_role=agent.role)
             context.update(result)
             if agent is self.report_agent:
                 report = result["report"]
+
         if not report:
             raise RuntimeError("Report agent failed to produce output")
-        metadata = report.metadata
-        metadata.duration_seconds = sum(per_run_durations)
-        metadata.cost_usd = sum(per_run_costs)
-        metadata.total_tokens = int(metadata.duration_seconds * 10)
+
+        total_tokens = total_input_tokens + total_output_tokens
+        cost_usd = (total_input_tokens * _COST_PER_INPUT_TOKEN) + (total_output_tokens * _COST_PER_OUTPUT_TOKEN)
+
+        report.metadata.duration_seconds = total_duration
+        report.metadata.total_tokens = total_tokens
+        report.metadata.cost_usd = cost_usd
         return report
