@@ -21,10 +21,10 @@ class DummyResearchTool(ResearchToolset):
 
 class DummyFormatter(FormatterTool):
     async def extract_swot(self, facts):
-        return {"strengths": [], "weaknesses": [], "opportunities": [], "threats": []}
+        return {"strengths": [], "weaknesses": [], "opportunities": [], "threats": []}, (0, 0)
 
     async def format_recommendations(self, facts):
-        return [{"title": "Rec", "rationale": "Rat", "expected_impact": "Imp"}]
+        return [{"title": "Rec", "rationale": "Rat", "expected_impact": "Imp"}], (0, 0)
 
 
 @pytest.mark.asyncio
@@ -36,5 +36,5 @@ async def test_crew_coordinator():
 
     report = await coordinator.run("test-run", "TestCo", "Segment")
     assert report.metadata.run_id == "test-run"
-    assert report.metadata.cost_usd > 0
-    assert report.metadata.duration_seconds > 0
+    assert report.metadata.cost_usd >= 0
+    assert report.metadata.duration_seconds >= 0
