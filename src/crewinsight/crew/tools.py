@@ -1,10 +1,27 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any, List
 
+from openai import AsyncAzureOpenAI
+
 from crewinsight.azure_clients import AzureSearchRAG
+from crewinsight.config import settings
 from crewinsight.data_sources.finnhub import FinnhubClient
+
+# GPT-4o deployment name on the Azure OpenAI resource
+_DEPLOYMENT = "gpt-4o"
+# Cap facts sent to GPT to limit token spend per call
+_MAX_FACTS = 30
+
+
+def _openai_client() -> AsyncAzureOpenAI:
+    return AsyncAzureOpenAI(
+        azure_endpoint=settings.azure_openai_endpoint,
+        api_key=settings.azure_openai_api_key,
+        api_version="2024-02-01",
+    )
 
 
 class ResearchToolset:
@@ -44,7 +61,7 @@ class ResearchToolset:
             capped_peers[i]: all_results[i + 1] for i in range(len(capped_peers))
         }
 
-        # Build facts list for backward compat with AnalystAgent / StrategistAgent
+        # Build facts list for AnalystAgent / StrategistAgent
         facts: List[str] = list(rag_facts)
         if profile.get("description"):
             facts.append(profile["description"])
@@ -74,22 +91,66 @@ class ResearchToolset:
 
 
 class FormatterTool:
-    async def extract_swot(self, facts: List[str]) -> dict:
-        await asyncio.sleep(0)
-        return {
-            "strengths": [f for f in facts[:2]],
-            "weaknesses": [f for f in facts[2:4]],
-            "opportunities": [f for f in facts[4:6]],
-            "threats": [f for f in facts[6:8]],
-        }
+    """Uses GPT-4o (Azure OpenAI) to extract real SWOT and strategic recommendations."""
 
-    async def format_recommendations(self, facts: List[str]) -> List[dict]:
-        await asyncio.sleep(0)
-        recs = []
-        for i in range(0, min(len(facts), 6), 2):
-            recs.append({
-                "title": f"Recommendation {i//2 + 1}",
-                "rationale": facts[i],
-                "expected_impact": facts[i + 1] if i + 1 < len(facts) else "TBD",
-            })
-        return recs
+    async def extract_swot(self, facts: List[str]) -> tuple[dict, tuple[int, int]]:
+        """Returns (swot_dict, (input_tokens, output_tokens))."""
+        facts_text = "\n".join(f"- {f}" for f in facts[:_MAX_FACTS])
+
+        prompt = f"""You are a competitive intelligence analyst. Given the following market research facts, extract a concise SWOT analysis.
+
+FACTS:
+{facts_text}
+
+Return a JSON object with exactly these keys: strengths, weaknesses, opportunities, threats.
+Each key maps to a list of 2-4 short, specific, actionable strings grounded in the facts above.
+Return only valid JSON, no markdown fences."""
+
+        client = _openai_client()
+        response = await client.chat.completions.create(
+            model=_DEPLOYMENT,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=600,
+        )
+        usage = (response.usage.prompt_tokens, response.usage.completion_tokens)
+        raw = response.choices[0].message.content or ""
+        try:
+            result = json.loads(raw)
+            for key in ("strengths", "weaknesses", "opportunities", "threats"):
+                if key not in result:
+                    result[key] = []
+            return result, usage
+        except json.JSONDecodeError:
+            return {"strengths": [], "weaknesses": [], "opportunities": [], "threats": []}, usage
+
+    async def format_recommendations(self, facts: List[str]) -> tuple[List[dict], tuple[int, int]]:
+        """Returns (recommendations_list, (input_tokens, output_tokens))."""
+        facts_text = "\n".join(f"- {f}" for f in facts[:_MAX_FACTS])
+
+        prompt = f"""You are a strategic business advisor. Given the following market research facts, generate 3 specific, actionable strategic recommendations.
+
+FACTS:
+{facts_text}
+
+Return a JSON array of exactly 3 objects, each with:
+- "title": short action-oriented title (max 8 words)
+- "rationale": 1-2 sentence explanation grounded in the facts above
+- "expected_impact": concrete business outcome if acted on
+
+Return only valid JSON array, no markdown fences."""
+
+        client = _openai_client()
+        response = await client.chat.completions.create(
+            model=_DEPLOYMENT,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=700,
+        )
+        usage = (response.usage.prompt_tokens, response.usage.completion_tokens)
+        raw = response.choices[0].message.content or ""
+        try:
+            recs = json.loads(raw)
+            return (recs[:3] if isinstance(recs, list) else []), usage
+        except json.JSONDecodeError:
+            return [], usage

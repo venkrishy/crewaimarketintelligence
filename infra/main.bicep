@@ -53,6 +53,19 @@ module monitoring 'monitoring.bicep' = {
 }
 
 // ---------------------------------------------------------------------------
+// Storage Account (Azure Table Storage for distributed rate limiting)
+// ---------------------------------------------------------------------------
+
+module storage 'storage.bicep' = {
+  name: 'storage'
+  params: {
+    prefix: prefix
+    location: location
+    tags: tags
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Container App (joins the shared RiskScout managed environment)
 // ---------------------------------------------------------------------------
 
@@ -70,6 +83,8 @@ module containerApp 'container-app.bicep' = {
     azureOpenAiApiKey: azureOpenAiApiKey
     azureSearchEndpoint: azureSearchEndpoint
     azureSearchApiKey: azureSearchApiKey
+    storageAccountName: storage.outputs.storageAccountName
+    storageAccountKey: storage.outputs.storageAccountKey
   }
 }
 
@@ -79,3 +94,4 @@ module containerApp 'container-app.bicep' = {
 
 output containerAppUrl string = containerApp.outputs.url
 output appInsightsConnectionString string = monitoring.outputs.appInsightsConnectionString
+output storageAccountName string = storage.outputs.storageAccountName
