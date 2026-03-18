@@ -17,6 +17,9 @@ param azureOpenAiApiKey string
 param azureSearchEndpoint string
 @secure()
 param azureSearchApiKey string
+param storageAccountName string
+@secure()
+param storageAccountKey string
 
 var imageName = '${containerRegistryServer}/crewinsight:${imageTag}'
 
@@ -46,6 +49,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       secrets: [
         { name: 'azure-openai-key', value: azureOpenAiApiKey }
         { name: 'azure-search-key', value: azureSearchApiKey }
+        { name: 'azure-storage-key', value: storageAccountKey }
       ]
     }
     template: {
@@ -78,6 +82,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_SEARCH_API_KEY', secretRef: 'azure-search-key' }
             { name: 'AZURE_SEARCH_INDEX', value: 'crewinsight-index' }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
+            { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
+            { name: 'AZURE_STORAGE_ACCOUNT_KEY', secretRef: 'azure-storage-key' }
             { name: 'LOG_LEVEL', value: 'INFO' }
           ]
           probes: [
