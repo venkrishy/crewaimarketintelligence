@@ -110,4 +110,4 @@ jobs:
           acrName: ${{ secrets.ACR_NAME }}
           containerAppName: crewinsight-prod-app
           resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          imageToBuild: ${{ secrets.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}
+          imageToDeploy: ${{ secrets.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}
