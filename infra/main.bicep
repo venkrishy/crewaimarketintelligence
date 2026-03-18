@@ -32,6 +32,13 @@ param azureSearchEndpoint string
 @description('Resource ID of existing Container Apps Managed Environment (shared with RiskScout)')
 param managedEnvironmentId string
 
+@description('Azure Container Registry admin username')
+param acrUsername string
+
+@secure()
+@description('Azure Container Registry admin password')
+param acrPassword string
+
 var prefix = 'crewinsight-${environment}'
 var tags = {
   project: 'crewinsight'
@@ -85,6 +92,8 @@ module containerApp 'container-app.bicep' = {
     azureSearchApiKey: azureSearchApiKey
     storageAccountName: storage.outputs.storageAccountName
     storageAccountKey: storage.outputs.storageAccountKey
+    acrUsername: acrUsername
+    acrPassword: acrPassword
   }
 }
 

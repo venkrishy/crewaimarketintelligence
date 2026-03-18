@@ -21,6 +21,10 @@ param storageAccountName string
 @secure()
 param storageAccountKey string
 
+param acrUsername string
+@secure()
+param acrPassword string
+
 var imageName = '${containerRegistryServer}/crewinsight:${imageTag}'
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
@@ -43,13 +47,15 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         {
           server: containerRegistryServer
-          identity: 'system'
+          username: acrUsername
+          passwordSecretRef: 'acr-password'
         }
       ]
       secrets: [
         { name: 'azure-openai-key', value: azureOpenAiApiKey }
         { name: 'azure-search-key', value: azureSearchApiKey }
         { name: 'azure-storage-key', value: storageAccountKey }
+        { name: 'acr-password', value: acrPassword }
       ]
     }
     template: {
