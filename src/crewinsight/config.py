@@ -5,10 +5,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    azure_openai_endpoint: str = Field(..., alias="AZURE_OPENAI_ENDPOINT")
-    azure_openai_api_key: str = Field(..., alias="AZURE_OPENAI_API_KEY")
-    azure_search_endpoint: str = Field(..., alias="AZURE_SEARCH_ENDPOINT")
-    azure_search_api_key: str = Field(..., alias="AZURE_SEARCH_API_KEY")
+    azure_openai_endpoint: str = Field("", alias="AZURE_OPENAI_ENDPOINT")
+    azure_openai_api_key: str = Field("", alias="AZURE_OPENAI_API_KEY")
+    azure_search_endpoint: str = Field("", alias="AZURE_SEARCH_ENDPOINT")
+    azure_search_api_key: str = Field("", alias="AZURE_SEARCH_API_KEY")
     azure_search_index: str = Field(default="crewinsight-index")
     azure_region: Literal["eastus", "eastus2", "centralus"] = Field("eastus")
     crew_mcp_command: str | None = Field(None)

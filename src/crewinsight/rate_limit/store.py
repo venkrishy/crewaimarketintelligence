@@ -6,7 +6,7 @@ from typing import Optional
 
 from azure.core.credentials import AzureKeyCredential
 from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
-from azure.core.match_conditions import MatchConditions
+from azure.core import MatchConditions
 from azure.data.tables.aio import TableServiceClient
 
 logger = logging.getLogger(__name__)

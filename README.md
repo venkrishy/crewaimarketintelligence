@@ -26,38 +26,16 @@ Try it with **Salesforce / CRM**, **Stripe / Payments**, or any company and mark
 
 ## How the Agents Work
 
-```
-Input: Company + Market Segment
-        │
-        ▼
-┌─────────────────────────┐
-│  1. Research Agent       │  Pulls live data via Finnhub API + Azure AI Search
-│  Senior Market Researcher│  → competitor profiles, news, market facts
-└────────────┬────────────┘
-             │ enriched context
-             ▼
-┌─────────────────────────┐
-│  2. Analyst Agent        │  Synthesizes research into a structured SWOT
-│  Competitive Analyst     │  → strengths, weaknesses, opportunities, threats
-└────────────┬────────────┘
-             │ enriched context
-             ▼
-┌─────────────────────────┐
-│  3. Strategist Agent     │  Derives actionable moves from the SWOT
-│  Strategic Advisor       │  → prioritized recommendations with expected impact
-└────────────┬────────────┘
-             │ enriched context
-             ▼
-┌─────────────────────────┐
-│  4. Report Writer Agent  │  Assembles the final structured report
-│  Business Report Writer  │  → executive summary, competitor profiles, full brief
-└─────────────────────────┘
-        │
-        ▼
-Output: Typed CrewReport (Pydantic-validated JSON + rendered UI)
-```
+![How the agents work](public/images/crewmarket-howagentswork.webp)
 
 Each agent's intermediate output is surfaced in the UI so you can follow the reasoning at every step.
+
+The Four AI Agents are:
+ - Senior Market Researcher Agent 
+ - Competitive Intelligence Analyst Agent
+ - Strategic Business Advisor Agent
+ - Business Report Writer Agent
+
 
 ---
 
